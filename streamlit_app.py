@@ -3,7 +3,37 @@ import pandas as pd
 import os
 import urllib.parse
 
-st.set_page_config(page_title="Gestão de Estoque - Drogaria", layout="wide")
+st.set_page_config(page_title="Farmácia Menor Preço - Gestão & Pedidos", layout="wide", page_icon="💊")
+
+# Estilização do Design
+st.markdown("""
+    <style>
+    /* Estilo do título principal */
+    .main-header {
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color: #0E4B82;
+        text-align: center;
+        padding: 10px 0px 20px 0px;
+        font-weight: 800;
+        font-size: 2.2rem;
+    }
+    
+    /* Estilo dos cards/seções */
+    .css-card {
+        background-color: #f8f9fa;
+        border-radius: 10px;
+        padding: 15px;
+        border-left: 5px solid #0E4B82;
+        margin-bottom: 15px;
+    }
+    
+    /* Botões personalizados */
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 ARQUIVO_ESTOQUE = "estoque_drogaria.csv"
 
@@ -27,7 +57,7 @@ if 'estoque' not in st.session_state:
 if 'carrinho' not in st.session_state:
     st.session_state['carrinho'] = []
 
-st.title("📦 Sistema de Gestão de Estoque & Pedidos")
+st.markdown("<h1 class='main-header'>💊 FARMÁCIA MENOR PREÇO</h1>", unsafe_allow_html=True)
 
 # Menu Principal
 menu = st.radio(
@@ -70,16 +100,15 @@ if menu == "🛒 Emitir Pedido":
                 preco_base = float(item_info['Preço Unit. (R$)'])
                 qtd_disp = int(item_info['Quantidade'])
                 
-                st.write(f"**Preço Cadastrado:** R$ {preco_base:.2f} | **Estoque:** {qtd_disp} un")
+                st.info(f"💡 **Preço Cadastrado:** R$ {preco_base:.2f} | **Estoque:** {qtd_disp} un")
                 
                 col_p, col_q = st.columns(2)
                 with col_p:
-                    # Campo para o usuário alterar o preço do medicamento se quiser
                     preco_venda = st.number_input("Preço de Venda (R$):", min_value=0.0, value=preco_base, format="%.2f", key="preco_venda")
                 with col_q:
                     qtd_pedir = st.number_input("Qtd Desejada:", min_value=1, max_value=max(1, qtd_disp), value=1, step=1, key="qtd_pedir")
                 
-                if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
+                if st.button("➕ Adicionar ao Carrinho", use_container_width=True, type="primary"):
                     st.session_state['carrinho'].append({
                         'Descrição': prod_selecionado,
                         'Qtd': qtd_pedir,
@@ -123,7 +152,7 @@ if menu == "🛒 Emitir Pedido":
                 
                 # Montagem do texto do comprovante
                 texto_comprovante = "========================================\n"
-                texto_comprovante += "           DROGARIA MAX - PEDIDO        \n"
+                texto_comprovante += "       FARMACIA MENOR PRECO - PEDIDO    \n"
                 texto_comprovante += "========================================\n"
                 if nome_cliente:
                     texto_comprovante += f"Cliente: {nome_cliente}\n"
@@ -146,7 +175,7 @@ if menu == "🛒 Emitir Pedido":
                 texto_comprovante += "========================================\n"
                 texto_comprovante += "Obrigado pela preferencia!"
 
-                # Envio direto por WhatsApp corrigido
+                # Envio direto por WhatsApp
                 if whatsapp_cliente:
                     fone_limpo = ''.join(filter(str.isdigit, whatsapp_cliente))
                     msg_encoded = urllib.parse.quote(texto_comprovante)
