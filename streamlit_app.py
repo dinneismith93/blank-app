@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS Nativa (Forçando Preto Puro e Alto Contraste em Todos os Elementos)
+# Estilização CSS Nativa (Forçando Preto Puro e Alto Contraste)
 st.markdown("""
     <style>
     /* Fundo Claro e Texto Preto em Todo o App */
@@ -34,7 +34,7 @@ st.markdown("""
         font-size: 16px !important;
     }
 
-    /* Correção do Pop-up Dropdown (Itens do Selectbox) */
+    /* Correção do Pop-up Dropdown */
     ul[role="listbox"] li, div[role="listbox"] * {
         color: #000000 !important;
         background-color: #ffffff !important;
@@ -94,6 +94,21 @@ st.markdown("""
         margin-top: 5px;
     }
 
+    /* Caixa do Comprovante na Tela (Branco com Letras Pretas em Negrito) */
+    .receipt-box {
+        background-color: #ffffff !important;
+        border: 2px solid #000000 !important;
+        border-radius: 10px;
+        padding: 15px;
+        font-family: monospace, monospace;
+        color: #000000 !important;
+        font-weight: 800 !important;
+        white-space: pre-wrap;
+        font-size: 15px;
+        line-height: 1.4;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
     /* Botão Vermelho Estilizado */
     .stButton>button { 
         width: 100%; 
@@ -138,7 +153,7 @@ if "pedidos" not in st.session_state:
 if "ultimo_pedido" not in st.session_state:
     st.session_state.ultimo_pedido = None
 
-# Topo
+# Topo da Marca
 st.markdown("""
     <div class="main-header">
         <div class="brand-max">🔴 DROGARIAS MAX</div>
@@ -154,7 +169,7 @@ tab_venda, tab_cadastro, tab_estoque, tab_historico = st.tabs([
     "📊 Histórico"
 ])
 
-# --- ABA 1: EMITIR PEDIDO COM DESCONTO INDIVIDUAL ---
+# --- ABA 1: EMITIR PEDIDO ---
 with tab_venda:
     st.markdown("### 📋 Dados do Cliente")
     cliente_nome = st.text_input("Cliente / Farmácia:", placeholder="Nome do cliente")
@@ -172,7 +187,6 @@ with tab_venda:
         
         preco_unitario = float(dados_p['Preço'])
         
-        # Display do produto
         st.markdown(f"""
             <div class="product-box">
                 <div class="product-name">{dados_p['Produto']}</div>
@@ -185,12 +199,11 @@ with tab_venda:
         qtd_compra = col_q.number_input("Quantidade:", min_value=1, max_value=max(1, int(dados_p['Estoque'])), value=1)
         desc_pct = col_d.number_input("Desconto (%):", min_value=0.0, max_value=100.0, value=0.0, step=1.0)
         
-        # Cálculo com desconto individual
         preco_com_desconto = preco_unitario * (1 - (desc_pct / 100))
         subtotal_item = preco_com_desconto * qtd_compra
         
         if desc_pct > 0:
-            st.info(f"💡 Preço Unitário com {desc_pct}% desc: **R$ {preco_com_desconto:.2f}** | Subtotal: **R$ {subtotal_item:.2f}**")
+            st.info(f"💡 Preço Unitário com desconto: **R$ {preco_com_desconto:.2f}** | Subtotal: **R$ {subtotal_item:.2f}**")
             
         if st.button("🛒 Adicionar ao Carrinho"):
             st.session_state.carrinho.append({
@@ -198,7 +211,6 @@ with tab_venda:
                 "Produto": prod_escolhido,
                 "Qtd": qtd_compra,
                 "Preço Orig.": preco_unitario,
-                "Desc %": desc_pct,
                 "Preço Final": preco_com_desconto,
                 "Subtotal": subtotal_item
             })
@@ -209,7 +221,7 @@ with tab_venda:
         st.markdown("---")
         st.markdown("### 🛒 Itens no Pedido")
         df_cart = pd.DataFrame(st.session_state.carrinho)
-        st.dataframe(df_cart[["Produto", "Qtd", "Desc %", "Preço Final", "Subtotal"]], hide_index=True, use_container_width=True)
+        st.dataframe(df_cart[["Produto", "Qtd", "Preço Final", "Subtotal"]], hide_index=True, use_container_width=True)
         
         val_total = df_cart["Subtotal"].sum()
         st.markdown(f"<h2 style='color:#0d47a1; text-align:right;'>Total: R$ {val_total:.2f}</h2>", unsafe_allow_html=True)
@@ -226,7 +238,7 @@ with tab_venda:
                     "Data": data_atual,
                     "Cliente": cliente_nome,
                     "Telefone": cliente_tel,
-                    "Endereço": endereco_envio,
+                    "Endereço": endereco_envio if endereco_envio.strip() else "Não informado",
                     "Pagamento": pagamento_forma,
                     "Itens": list(st.session_state.carrinho),
                     "Total": val_total
@@ -235,7 +247,7 @@ with tab_venda:
                 st.session_state.pedidos.append(novo_p)
                 st.session_state.ultimo_pedido = novo_p
                 
-                # Atualiza Estoque
+                # Atualização do Estoque
                 for itm in st.session_state.carrinho:
                     idx = st.session_state.produtos[st.session_state.produtos["ID"] == itm["ID"]].index[0]
                     st.session_state.produtos.at[idx, "Estoque"] -= itm["Qtd"]
@@ -244,26 +256,29 @@ with tab_venda:
                 st.balloons()
                 st.success(f"🎉 Pedido #{num_pedido} registrado com sucesso!")
 
-    # Comprovante para envio
+    # Comprovante do Cliente
     if st.session_state.ultimo_pedido:
         ped = st.session_state.ultimo_pedido
         st.markdown("---")
-        st.subheader(f"🧾 Comprovante #{ped['Pedido']}")
+        st.subheader(f"🧾 Comprovante do Pedido {ped['Pedido']}")
         
         texto_nota = f"*DROGARIAS MAX - COMPROVANTE DE PEDIDO*\n"
         texto_nota += f"Pedido: {ped['Pedido']} | Data: {ped['Data']}\n"
         texto_nota += f"Cliente: {ped['Cliente']}\n"
+        texto_nota += f"Endereço: {ped['Endereço']}\n"
         texto_nota += f"Pagamento: {ped['Pagamento']}\n"
         texto_nota += "-------------------------------------\n"
         
         for itm in ped['Itens']:
-            desc_str = f" ({itm['Desc %']}% desc)" if itm['Desc %'] > 0 else ""
-            texto_nota += f"• {itm['Qtd']}x {itm['Produto']}{desc_str} - R$ {itm['Subtotal']:.2f}\n"
+            texto_nota += f"• {itm['Qtd']}x {itm['Produto']} - R$ {itm['Subtotal']:.2f}\n"
             
         texto_nota += "-------------------------------------\n"
-        texto_nota += f"*TOTAL FINAL: R$ {ped['Total']:.2f}*"
+        texto_nota += f"*TOTAL FINAL: R$ {ped['Total']:.2f}*\n\n"
+        texto_nota += "AGRADEÇO SUA PREFERÊNCIA, VOCÊ É IMPORTANTE PARA NÓS!"
         
-        st.code(texto_nota, language="text")
+        # Caixa Visual Clara com Texto Preto Negrito
+        st.markdown(f'<div class="receipt-box">{texto_nota}</div>', unsafe_allow_html=True)
+        st.write("")
         
         if ped['Telefone']:
             tel_limpo = ''.join(filter(str.isdigit, ped['Telefone']))
