@@ -1,28 +1,12 @@
 import streamlit as st
 import pandas as pd
 import pdfplumber
-import os
 
 st.set_page_config(page_title="Gestão de Estoque", layout="wide")
 
-ARQUIVO_ESTOQUE = "estoque.csv"
-
-# Função para carregar o estoque salvo do arquivo CSV
-def carregar_estoque():
-    if os.path.exists(ARQUIVO_ESTOQUE):
-        try:
-            return pd.read_csv(ARQUIVO_ESTOQUE)
-        except Exception:
-            return pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
-    return pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
-
-# Função para salvar alterações no arquivo CSV
-def salvar_estoque(df):
-    df.to_csv(ARQUIVO_ESTOQUE, index=False)
-
-# Inicializa a sessão com o estoque salvo
+# Inicializa o estoque na sessão
 if 'estoque' not in st.session_state:
-    st.session_state['estoque'] = carregar_estoque()
+    st.session_state['estoque'] = pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
 
 st.title("📦 Sistema de Gestão de Estoque")
 
@@ -50,7 +34,6 @@ if menu == "Emitir Pedido":
         if busca:
             df_estoque = df_estoque[df_estoque['Descrição'].str.contains(busca, case=False, na=False)]
         
-        # Exibe os primeiros 100 resultados ou os filtrados para não pesar a tela do celular
         st.write(f"Exibindo **{len(df_estoque)}** produtos encontrados:")
         st.dataframe(df_estoque.head(100), use_container_width=True)
 
@@ -67,8 +50,7 @@ elif menu == "Novo Produto":
             if nome:
                 novo_item = pd.DataFrame([{'Descrição': nome, 'Quantidade': qtd, 'Preço Unit. (R$)': preco}])
                 st.session_state['estoque'] = pd.concat([st.session_state['estoque'], novo_item], ignore_index=True)
-                salvar_estoque(st.session_state['estoque'])
-                st.success(f"Produto '{nome}' cadastrado e salvo com sucesso!")
+                st.success(f"Produto '{nome}' cadastrado com sucesso!")
             else:
                 st.warning("Preencha o nome do produto.")
 
@@ -109,10 +91,8 @@ elif menu == "Importar PDF":
                                             continue
                     
                     if lista_produtos:
-                        novo_df = pd.DataFrame(lista_produtos)
-                        st.session_state['estoque'] = novo_df
-                        salvar_estoque(novo_df)
-                        st.success(f"Sucesso! {len(lista_produtos)} produtos importados e salvos permanentemente.")
+                        st.session_state['estoque'] = pd.DataFrame(lista_produtos)
+                        st.success(f"Sucesso! {len(lista_produtos)} produtos importados.")
                     else:
                         st.warning("Nenhum produto com o padrão do relatório foi encontrado.")
                         
@@ -136,4 +116,4 @@ elif menu == "Estoque & Preços":
             key="btn_download"
         )
         
-        st.dataframe(st.session_state['estoque'], use_container_width=True)
+        st.dataframe(st.session_state['estoque'].head(200), use_container_width=True)
