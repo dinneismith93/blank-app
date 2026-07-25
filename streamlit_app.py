@@ -10,7 +10,10 @@ ARQUIVO_ESTOQUE = "estoque.csv"
 # Função para carregar o estoque salvo do arquivo CSV
 def carregar_estoque():
     if os.path.exists(ARQUIVO_ESTOQUE):
-        return pd.read_csv(ARQUIVO_ESTOQUE)
+        try:
+            return pd.read_csv(ARQUIVO_ESTOQUE)
+        except Exception:
+            return pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
     return pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
 
 # Função para salvar alterações no arquivo CSV
@@ -27,7 +30,8 @@ st.title("📦 Sistema de Gestão de Estoque")
 menu = st.radio(
     "Menu",
     ["Emitir Pedido", "Novo Produto", "Importar PDF", "Estoque & Preços"],
-    horizontal=True
+    horizontal=True,
+    key="menu_principal"
 )
 
 st.divider()
@@ -38,27 +42,28 @@ if menu == "Emitir Pedido":
     if st.session_state['estoque'].empty:
         st.info("O estoque está vazio. Vá em 'Importar PDF' para carregar os produtos.")
     else:
-        st.write("Selecione os produtos para montar o pedido:")
+        st.write("Pesquise e selecione os produtos para o pedido:")
         
         df_estoque = st.session_state['estoque'].copy()
         
-        # Filtro de busca rápido
-        busca = st.text_input("🔍 Buscar produto...")
+        busca = st.text_input("🔍 Buscar produto...", key="busca_pedido")
         if busca:
             df_estoque = df_estoque[df_estoque['Descrição'].str.contains(busca, case=False, na=False)]
         
-        st.dataframe(df_estoque, use_container_width=True)
+        # Exibe os primeiros 100 resultados ou os filtrados para não pesar a tela do celular
+        st.write(f"Exibindo **{len(df_estoque)}** produtos encontrados:")
+        st.dataframe(df_estoque.head(100), use_container_width=True)
 
 # --- ABA 2: NOVO PRODUTO ---
 elif menu == "Novo Produto":
     st.header("➕ Cadastrar Novo Produto Manualmente")
     col1, col2 = st.columns(2)
     with col1:
-        nome = st.text_input("Nome do Produto")
-        preco = st.number_input("Preço (R$)", min_value=0.0, format="%.2f")
+        nome = st.text_input("Nome do Produto", key="nome_prod")
+        preco = st.number_input("Preço (R$)", min_value=0.0, format="%.2f", key="preco_prod")
     with col2:
-        qtd = st.number_input("Quantidade em Estoque", min_value=0, step=1)
-        if st.button("Salvar Produto"):
+        qtd = st.number_input("Quantidade em Estoque", min_value=0, step=1, key="qtd_prod")
+        if st.button("Salvar Produto", key="btn_salvar_manual"):
             if nome:
                 novo_item = pd.DataFrame([{'Descrição': nome, 'Quantidade': qtd, 'Preço Unit. (R$)': preco}])
                 st.session_state['estoque'] = pd.concat([st.session_state['estoque'], novo_item], ignore_index=True)
@@ -72,10 +77,10 @@ elif menu == "Importar PDF":
     st.header("📄 Importar Estoque via PDF")
     st.write("Upload do relatório do inventário para cadastrar os produtos automaticamente.")
     
-    uploaded_file = st.file_uploader("Selecione o arquivo PDF do inventário", type=["pdf"])
+    uploaded_file = st.file_uploader("Selecione o arquivo PDF do inventário", type=["pdf"], key="pdf_uploader")
     
     if uploaded_file is not None:
-        if st.button("Processar PDF e Atualizar Estoque"):
+        if st.button("Processar PDF e Atualizar Estoque", key="btn_processar_pdf"):
             with st.spinner("Lendo e extraindo produtos de todas as páginas..."):
                 lista_produtos = []
                 try:
@@ -122,13 +127,13 @@ elif menu == "Estoque & Preços":
     else:
         st.write(f"Total de itens no estoque: **{len(st.session_state['estoque'])}**")
         
-        # Botão para baixar backup da lista
         csv_data = st.session_state['estoque'].to_csv(index=False).encode('utf-8')
         st.download_button(
             label="📥 Baixar Backup em Excel/CSV",
             data=csv_data,
             file_name="estoque_drogaria.csv",
-            mime="text/csv"
+            mime="text/csv",
+            key="btn_download"
         )
         
         st.dataframe(st.session_state['estoque'], use_container_width=True)
