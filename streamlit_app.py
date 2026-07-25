@@ -67,25 +67,26 @@ if menu == "🛒 Emitir Pedido":
                 prod_selecionado = st.selectbox("Selecione o produto da lista:", opcoes_produtos, key="select_prod")
                 
                 item_info = df_estoque[df_estoque['Descrição'] == prod_selecionado].iloc[0]
-                preco_unit = float(item_info['Preço Unit. (R$)'])
+                preco_base = float(item_info['Preço Unit. (R$)'])
                 qtd_disp = int(item_info['Quantidade'])
                 
-                st.write(f"**Preço:** R$ {preco_unit:.2f} | **Disponível:** {qtd_disp} un")
+                st.write(f"**Preço Cadastrado:** R$ {preco_base:.2f} | **Estoque:** {qtd_disp} un")
                 
-                col_q, col_b = st.columns([1, 1])
+                col_p, col_q = st.columns(2)
+                with col_p:
+                    # Campo para o usuário alterar o preço do medicamento se quiser
+                    preco_venda = st.number_input("Preço de Venda (R$):", min_value=0.0, value=preco_base, format="%.2f", key="preco_venda")
                 with col_q:
                     qtd_pedir = st.number_input("Qtd Desejada:", min_value=1, max_value=max(1, qtd_disp), value=1, step=1, key="qtd_pedir")
-                with col_b:
-                    st.write("")
-                    st.write("")
-                    if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
-                        st.session_state['carrinho'].append({
-                            'Descrição': prod_selecionado,
-                            'Qtd': qtd_pedir,
-                            'Preço Unit. (R$)': preco_unit,
-                            'Subtotal (R$)': round(qtd_pedir * preco_unit, 2)
-                        })
-                        st.success(f"Adicionado ao carrinho!")
+                
+                if st.button("➕ Adicionar ao Carrinho", use_container_width=True):
+                    st.session_state['carrinho'].append({
+                        'Descrição': prod_selecionado,
+                        'Qtd': qtd_pedir,
+                        'Preço Unit. (R$)': preco_venda,
+                        'Subtotal (R$)': round(qtd_pedir * preco_venda, 2)
+                    })
+                    st.success(f"Adicionado ao carrinho com o valor de R$ {preco_venda:.2f}!")
 
             st.divider()
             st.subheader("2. Dados da Entrega / Cliente")
@@ -109,7 +110,7 @@ if menu == "🛒 Emitir Pedido":
                 st.info("O carrinho está vazio no momento.")
             else:
                 df_carrinho = pd.DataFrame(st.session_state['carrinho'])
-                st.dataframe(df_carrinho[['Descrição', 'Qtd', 'Subtotal (R$)']], use_container_width=True)
+                st.dataframe(df_carrinho[['Descrição', 'Qtd', 'Preço Unit. (R$)', 'Subtotal (R$)']], use_container_width=True)
                 
                 subtotal_produtos = df_carrinho['Subtotal (R$)'].sum()
                 total_geral = subtotal_produtos + taxa_motoboy
@@ -127,7 +128,7 @@ if menu == "🛒 Emitir Pedido":
                 if nome_cliente:
                     texto_comprovante += f"Cliente: {nome_cliente}\n"
                 if endereco_cliente:
-                    texto_comprovante += f"Endereço: {endereco_cliente}\n"
+                    texto_comprovante += f"Endereco: {endereco_cliente}\n"
                 if nome_motoboy:
                     texto_comprovante += f"Entregador: {nome_motoboy}\n"
                 texto_comprovante += "----------------------------------------\n"
@@ -145,12 +146,12 @@ if menu == "🛒 Emitir Pedido":
                 texto_comprovante += "========================================\n"
                 texto_comprovante += "Obrigado pela preferencia!"
 
-                # Envio direto por WhatsApp
+                # Envio direto por WhatsApp corrigido
                 if whatsapp_cliente:
                     fone_limpo = ''.join(filter(str.isdigit, whatsapp_cliente))
                     msg_encoded = urllib.parse.quote(texto_comprovante)
                     link_wa = f"https://api.whatsapp.com/send?phone=55{fone_limpo}&text={msg_encoded}"
-                    st.markdown(f"[📲 **Enviar Comprovante via WhatsApp**]({link_wa})", unsafe_allow_dict=True)
+                    st.link_button("📲 Enviar Comprovante via WhatsApp", link_wa, use_container_width=True)
 
                 col_limpar, col_imprimir = st.columns(2)
                 with col_limpar:
