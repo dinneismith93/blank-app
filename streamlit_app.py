@@ -39,7 +39,6 @@ def salvar_vendas_disco(df_vendas):
     df_vendas.to_csv(ARQUIVO_VENDAS, index=False)
 
 def salvar_clientes_disco(df_clientes):
-    # Garante salvamento automático permanente dos contatos
     df_clientes.to_csv(ARQUIVO_CLIENTES, index=False)
 
 # --- CARREGAMENTO DE DADOS ---
@@ -106,11 +105,11 @@ def gerar_pdf_clientes(df_clientes):
         
     return pdf.output(dest='S').encode('latin-1', errors='replace')
 
-# --- EXTRAÇÃO DINÂMICA DE ARQUIVOS (EXCEL / PDF / CSV) ---
+# --- EXTRAÇÃO FLEXÍVEL DE PLANILHAS (EXCEL / CSV / PDF) ---
 def extrair_clientes_de_arquivo(uploaded_file):
-    novos = []
     filename = uploaded_file.name.lower()
-    
+    novos = []
+
     if filename.endswith('.pdf'):
         with pdfplumber.open(uploaded_file) as pdf:
             for page in pdf.pages:
@@ -124,36 +123,39 @@ def extrair_clientes_de_arquivo(uploaded_file):
                             if nome:
                                 novos.append({'Nome': nome, 'WhatsApp': whats, 'Endereço': end})
         return pd.DataFrame(novos)
-        
-    elif filename.endswith('.xlsx') or filename.endswith('.xls') or filename.endswith('.csv'):
+
+    elif filename.endswith(('.xlsx', '.xls', '.csv')):
         if filename.endswith('.csv'):
             df = pd.read_csv(uploaded_file, dtype=str)
         else:
             df = pd.read_excel(uploaded_file, dtype=str)
-            
+
         col_nome, col_whats, col_end = None, None, None
-        
+
         for col in df.columns:
             c_lower = str(col).lower().strip()
-            if any(k in c_lower for k in ['nome', 'cliente', 'razão', 'pessoa']):
+            if any(k in c_lower for k in ['nome', 'cliente', 'razão', 'pessoa', 'contato']):
                 col_nome = col
-            elif any(k in c_lower for k in ['whats', 'tel', 'celular', 'fone', 'contato', 'numero', 'número']):
+            elif any(k in c_lower for k in ['whats', 'tel', 'celular', 'fone', 'numero', 'número', 'mobile']):
                 col_whats = col
             elif any(k in c_lower for k in ['end', 'rua', 'bairro', 'local', 'endereço', 'endereco']):
                 col_end = col
-        
+
+        # Caso as colunas não tenham nomes óbvios, pega por posição das colunas
         if not col_nome and len(df.columns) >= 1: col_nome = df.columns[0]
         if not col_whats and len(df.columns) >= 2: col_whats = df.columns[1]
         if not col_end and len(df.columns) >= 3: col_end = df.columns[2]
-        
-        df_formatado = pd.DataFrame()
-        df_formatado['Nome'] = df[col_nome].astype(str).str.strip() if col_nome else ""
-        df_formatado['WhatsApp'] = df[col_whats].astype(str).str.strip() if col_whats else ""
-        df_formatado['Endereço'] = df[col_end].astype(str).str.strip() if col_end else ""
-        
-        return df_formatado
-        
-    return pd.DataFrame(novos)
+
+        df_res = pd.DataFrame()
+        df_res['Nome'] = df[col_nome].astype(str).str.strip() if col_nome else ""
+        df_res['WhatsApp'] = df[col_whats].astype(str).str.strip() if col_whats else ""
+        df_res['Endereço'] = df[col_end].astype(str).str.strip() if col_end else ""
+
+        # Remove linhas que vieram vazias
+        df_res = df_res[df_res['Nome'].str.lower() != 'nan']
+        return df_res
+
+    return pd.DataFrame()
 
 # --- ESTADOS DA SESSÃO ---
 if 'estoque' not in st.session_state:
@@ -396,19 +398,19 @@ elif menu == "👥 Clientes & Alertas":
         st.subheader("📤 Importar Lista de Clientes")
         arquivo_cli = st.file_uploader("Selecione o arquivo Excel (Pasta2.xlsx), PDF ou CSV:", type=['xlsx', 'xls', 'pdf', 'csv'], key="upload_clientes")
         
-        # IMPORTAÇÃO AUTOMÁTICA AO SELECIONAR O ARQUIVO
         if arquivo_cli is not None:
-            try:
-                novos_df = extrair_clientes_de_arquivo(arquivo_cli)
-                if not novos_df.empty:
-                    st.session_state['clientes'] = pd.concat([st.session_state['clientes'], novos_df], ignore_index=True).drop_duplicates(subset=['WhatsApp'])
-                    salvar_clientes_disco(st.session_state['clientes'])
-                    st.success(f"✅ Importado com sucesso! {len(novos_df)} contato(s) salvo(s) permanentemente.")
-                    st.rerun()
-                else:
-                    st.error("Não foi possível ler dados válidos deste arquivo.")
-            except Exception as e:
-                st.error(f"Erro ao processar o arquivo: {e}")
+            if st.button("📥 Processar e Importar Clientes", type="primary", use_container_width=True):
+                try:
+                    novos_df = extrair_clientes_de_arquivo(arquivo_cli)
+                    if not novos_df.empty:
+                        st.session_state['clientes'] = pd.concat([st.session_state['clientes'], novos_df], ignore_index=True).drop_duplicates(subset=['WhatsApp'])
+                        salvar_clientes_disco(st.session_state['clientes'])
+                        st.success(f"✅ Sucesso! {len(novos_df)} clientes processados e salvos!")
+                        st.rerun()
+                    else:
+                        st.error("⚠️ Não encontramos dados válidos de clientes nesta planilha.")
+                except Exception as e:
+                    st.error(f"Erro na leitura do arquivo: {e}.")
 
         st.divider()
         st.subheader("📥 Exportar Contatos")
