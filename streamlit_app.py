@@ -6,7 +6,11 @@ st.set_page_config(page_title="Gestão de Estoque", layout="wide")
 
 st.title("📦 Sistema de Gestão de Estoque")
 
-# Criação do menu principal
+# Inicializa o estoque na sessão do usuário
+if 'estoque' not in st.session_state:
+    st.session_state['estoque'] = pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
+
+# Menu principal
 menu = st.radio(
     "Menu",
     ["Emitir Pedido", "Novo Produto", "Importar PDF", "Estoque & Preços"],
@@ -15,46 +19,93 @@ menu = st.radio(
 
 st.divider()
 
+# --- ABA 1: EMITIR PEDIDO ---
 if menu == "Emitir Pedido":
     st.header("🛒 Emitir Pedido")
-    st.info("Selecione os itens do estoque para gerar o pedido.")
+    if st.session_state['estoque'].empty:
+        st.info("O estoque está vazio. Vá em 'Importar PDF' para carregar os produtos.")
+    else:
+        st.write("Selecione os produtos para montar o pedido:")
+        
+        df_estoque = st.session_state['estoque'].copy()
+        
+        # Filtro de busca rápido
+        busca = st.text_input("🔍 Buscar produto...")
+        if busca:
+            df_estoque = df_estoque[df_estoque['Descrição'].str.contains(busca, case=False, na=False)]
+        
+        st.dataframe(df_estoque, use_container_width=True)
 
+# --- ABA 2: NOVO PRODUTO ---
 elif menu == "Novo Produto":
-    st.header("➕ Cadastrar Novo Produto")
+    st.header("➕ Cadastrar Novo Produto Manualmente")
     col1, col2 = st.columns(2)
     with col1:
-        st.text_input("Nome do Produto")
-        st.number_input("Preço (R$)", min_value=0.0, format="%.2f")
+        nome = st.text_input("Nome do Produto")
+        preco = st.number_input("Preço (R$)", min_value=0.0, format="%.2f")
     with col2:
-        st.number_input("Quantidade em Estoque", min_value=0, step=1)
-        st.button("Salvar Produto")
+        qtd = st.number_input("Quantidade em Estoque", min_value=0, step=1)
+        if st.button("Salvar Produto"):
+            if nome:
+                novo_item = pd.DataFrame([{'Descrição': nome, 'Quantidade': qtd, 'Preço Unit. (R$)': preco}])
+                st.session_state['estoque'] = pd.concat([st.session_state['estoque'], novo_item], ignore_index=True)
+                st.success(f"Produto '{nome}' cadastrado com sucesso!")
+            else:
+                st.warning("Preencha o nome do produto.")
 
+# --- ABA 3: IMPORTAR PDF ---
 elif menu == "Importar PDF":
     st.header("📄 Importar Estoque via PDF")
-    st.write("Faça o upload do seu relatório em PDF para cadastrar e atualizar o estoque automaticamente.")
+    st.write("Upload do relatório do inventário para cadastrar os produtos automaticamente.")
     
-    uploaded_file = st.file_uploader("Selecione o arquivo PDF do seu inventário", type=["pdf"])
+    uploaded_file = st.file_uploader("Selecione o arquivo PDF do inventário", type=["pdf"])
     
     if uploaded_file is not None:
-        with st.spinner("Lendo e extraindo os produtos do PDF..."):
-            try:
-                produtos_extraidos = []
-                with pdfplumber.open(uploaded_file) as pdf:
-                    for page in pdf.pages:
-                        texto = page.extract_text()
-                        if texto:
-                            produtos_extraidos.append(texto)
-                
-                st.success("PDF processado com sucesso!")
-                st.write(f"Total de páginas lidas: {len(produtos_extraidos)}")
-                
-                if produtos_extraidos:
-                    st.subheader("Exemplo do conteúdo da Página 1:")
-                    st.text(produtos_extraidos[0][:1000])
+        if st.button("Processar PDF e Atualizar Estoque"):
+            with st.spinner("Lendo e extraindo produtos de todas as páginas..."):
+                lista_produtos = []
+                try:
+                    with pdfplumber.open(uploaded_file) as pdf:
+                        for page in pdf.pages:
+                            texto = page.extract_text()
+                            if texto:
+                                linhas = texto.split('\n')
+                                for linha in linhas:
+                                    partes = linha.split(':')
+                                    # Valida se a linha tem o formato de produto
+                                    if len(partes) >= 6:
+                                        try:
+                                            # Trata a descrição
+                                            desc = partes[1].strip()
+                                            if '-' in desc:
+                                                desc = desc.split('-', 1)[1].strip()
+                                            
+                                            # Trata quantidade e valor unitário
+                                            qtd = int(partes[3].strip())
+                                            val_unit = float(partes[4].strip().replace(',', '.'))
+                                            
+                                            lista_produtos.append({
+                                                'Descrição': desc,
+                                                'Quantidade': qtd,
+                                                'Preço Unit. (R$)': val_unit
+                                            })
+                                        except ValueError:
+                                            continue
+                    
+                    if lista_produtos:
+                        st.session_state['estoque'] = pd.DataFrame(lista_produtos)
+                        st.success(f"Sucesso! {len(lista_produtos)} produtos importados para o estoque.")
+                    else:
+                        st.warning("Nenhum produto com o padrão do relatório foi encontrado.")
+                        
+                except Exception as e:
+                    st.error(f"Erro ao processar o arquivo: {e}")
 
-            except Exception as e:
-                st.error(f"Erro ao ler o PDF: {e}")
-
+# --- ABA 4: ESTOQUE & PREÇOS ---
 elif menu == "Estoque & Preços":
     st.header("📋 Estoque & Preços")
-    st.write("Visualização dos produtos cadastrados.")
+    if st.session_state['estoque'].empty:
+        st.info("Nenhum produto cadastrado no momento.")
+    else:
+        st.write(f"Total de itens no estoque: **{len(st.session_state['estoque'])}**")
+        st.dataframe(st.session_state['estoque'], use_container_width=True)
