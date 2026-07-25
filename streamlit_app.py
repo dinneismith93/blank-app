@@ -2,9 +2,8 @@ import streamlit as st
 import pandas as pd
 import datetime
 import urllib.parse
-from fpdf import FPDF
 
-# Configuração da página
+# Configuração da página para celular
 st.set_page_config(
     page_title="FarmaRCA Pro - Sistema de Vendas",
     page_icon="💊",
@@ -12,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS
+# Estilização visual (CSS)
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -29,51 +28,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Função para gerar o PDF da Nota / Comprovante
-def gerar_pdf_nota(pedido_data):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    
-    # Cabeçalho
-    pdf.cell(0, 10, "FARMARCA PRO - COMPROVANTE DE PEDIDO", ln=True, align='C')
-    pdf.ln(5)
-    
-    pdf.set_font("Arial", size=10)
-    pdf.cell(0, 6, f"Pedido: {pedido_data['Pedido']} | Data: {pedido_data['Data']}", ln=True)
-    pdf.cell(0, 6, f"Cliente: {pedido_data['Cliente']}", ln=True)
-    pdf.cell(0, 6, f"Telefone: {pedido_data['Telefone']}", ln=True)
-    pdf.cell(0, 6, f"Endereço: {pedido_data['Endereço']}", ln=True)
-    pdf.cell(0, 6, f"Forma de Pagamento: {pedido_data['Pagamento']}", ln=True)
-    
-    pdf.ln(5)
-    pdf.cell(0, 0, "", "T", ln=True) # Linha divisória
-    pdf.ln(5)
-    
-    # Tabela de Itens
-    pdf.set_font("Arial", 'B', 11)
-    pdf.cell(100, 8, "Item / Produto", 1)
-    pdf.cell(25, 8, "Qtd", 1, align='C')
-    pdf.cell(30, 8, "Unitario", 1, align='R')
-    pdf.cell(35, 8, "Subtotal", 1, align='R')
-    pdf.ln()
-    
-    pdf.set_font("Arial", size=10)
-    for itm in pedido_data['Itens']:
-        pdf.cell(100, 7, str(itm['Produto'])[:40], 1)
-        pdf.cell(25, 7, str(itm['Qtd']), 1, align='C')
-        pdf.cell(30, 7, f"R$ {itm['Preço']:.2f}", 1, align='R')
-        pdf.cell(35, 7, f"R$ {itm['Subtotal']:.2f}", 1, align='R')
-        pdf.ln()
-        
-    pdf.ln(5)
-    pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 8, f"TOTAL DO PEDIDO: R$ {pedido_data['Total']:.2f}", ln=True, align='R')
-    
-    # Retorna o arquivo em bytes
-    return bytes(pdf.output(dest='S'))
-
-# Lista completa dos medicamentos
+# Lista padrão com os 40 medicamentos
 dados_iniciais = [
     {"ID": 1001, "Produto": "Atenol 50mg", "Categoria": "Medicamentos", "Laboratório": "Genérico", "Preço": 9.50, "Estoque": 99},
     {"ID": 1002, "Produto": "Azitromicina 40mg/mL - Pó para Suspensão Oral", "Categoria": "Antibióticos", "Laboratório": "Genérico", "Preço": 18.90, "Estoque": 99},
@@ -117,7 +72,7 @@ dados_iniciais = [
     {"ID": 1040, "Produto": "Risperidona 2mg - Comprimido", "Categoria": "Controlados", "Laboratório": "Genérico", "Preço": 21.00, "Estoque": 99}
 ]
 
-# Inicialização de Estado
+# Estado da Memória
 if "produtos" not in st.session_state:
     st.session_state.produtos = pd.DataFrame(dados_iniciais)
 
@@ -135,7 +90,7 @@ st.caption("Força de Vendas e Pedidos Diretos - Uso Mobile")
 
 tab_venda, tab_estoque, tab_historico = st.tabs(["🛍️ Novo Pedido", "📦 Catálogo / Estoque", "📈 Histórico Vendas"])
 
-# --- ABA 1: EMISSÃO DE PEDIDOS ---
+# --- ABA 1: NOVO PEDIDO ---
 with tab_venda:
     st.subheader("Emitir Pedido de Venda")
     
@@ -205,7 +160,7 @@ with tab_venda:
                 st.session_state.pedidos.append(novo_p)
                 st.session_state.ultimo_pedido = novo_p
                 
-                # Baixa no Estoque
+                # Dar baixa no estoque
                 for itm in st.session_state.carrinho:
                     idx = st.session_state.produtos[st.session_state.produtos["ID"] == itm["ID"]].index[0]
                     st.session_state.produtos.at[idx, "Estoque"] -= itm["Qtd"]
@@ -214,41 +169,39 @@ with tab_venda:
                 st.balloons()
                 st.success(f"Pedido #{num_pedido} emitido com sucesso!")
 
-    # Exibição do Comprovante e Botão do PDF
+    # Exibição do Comprovante e Envio por WhatsApp
     if st.session_state.ultimo_pedido:
         ped = st.session_state.ultimo_pedido
         st.markdown("---")
         st.subheader(f"🧾 Comprovante do Pedido {ped['Pedido']}")
         
-        # Gerar o PDF em memória
-        pdf_bytes = gerar_pdf_nota(ped)
-        
-        st.download_button(
-            label="📄 Baixar Comprovante em PDF",
-            data=pdf_bytes,
-            file_name=f"Nota_Pedido_{ped['Pedido']}.pdf",
-            mime="application/pdf"
-        )
-        
         texto_nota = f"*COMPROVANTE DE COMPRA - FARMARCA PRO*\n"
         texto_nota += f"Pedido: {ped['Pedido']} | Data: {ped['Data']}\n"
         texto_nota += f"Cliente: {ped['Cliente']}\n"
+        texto_nota += f"Endereço: {ped['Endereço']}\n"
         texto_nota += f"Pagamento: {ped['Pagamento']}\n"
-        texto_nota += f"Total: R$ {ped['Total']:.2f}\n\n"
-        texto_nota += "Segue acima a confirmação do seu pedido!"
+        texto_nota += "-------------------------------------\n"
+        
+        for itm in ped['Itens']:
+            texto_nota += f"• {itm['Qtd']}x {itm['Produto']} - R$ {itm['Subtotal']:.2f}\n"
+            
+        texto_nota += "-------------------------------------\n"
+        texto_nota += f"*TOTAL: R$ {ped['Total']:.2f}*"
+        
+        st.code(texto_nota, language="text")
         
         if ped['Telefone']:
             tel_limpo = ''.join(filter(str.isdigit, ped['Telefone']))
             msg_url = urllib.parse.quote(texto_nota)
             link_wa = f"https://wa.me/{tel_limpo}?text={msg_url}"
-            st.markdown(f"[📲 Enviar Notificação no WhatsApp do Cliente]({link_wa})")
+            st.markdown(f"[📲 Enviar Comprovante no WhatsApp do Cliente]({link_wa})")
 
 # --- ABA 2: ESTOQUE ---
 with tab_estoque:
     st.subheader("Catálogo de Produtos e Estoque")
     st.dataframe(st.session_state.produtos, hide_index=True, use_container_width=True)
 
-# --- ABA 3: HISTÓRICO DE VENDAS ---
+# --- ABA 3: HISTÓRICO ---
 with tab_historico:
     st.subheader("Painel de Vendas Realizadas")
     if not st.session_state.pedidos:
