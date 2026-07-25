@@ -1,14 +1,27 @@
 import streamlit as st
 import pandas as pd
 import pdfplumber
+import os
 
 st.set_page_config(page_title="Gestão de Estoque", layout="wide")
 
-st.title("📦 Sistema de Gestão de Estoque")
+ARQUIVO_ESTOQUE = "estoque.csv"
 
-# Inicializa o estoque na sessão do usuário
+# Função para carregar o estoque salvo do arquivo CSV
+def carregar_estoque():
+    if os.path.exists(ARQUIVO_ESTOQUE):
+        return pd.read_csv(ARQUIVO_ESTOQUE)
+    return pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
+
+# Função para salvar alterações no arquivo CSV
+def salvar_estoque(df):
+    df.to_csv(ARQUIVO_ESTOQUE, index=False)
+
+# Inicializa a sessão com o estoque salvo
 if 'estoque' not in st.session_state:
-    st.session_state['estoque'] = pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
+    st.session_state['estoque'] = carregar_estoque()
+
+st.title("📦 Sistema de Gestão de Estoque")
 
 # Menu principal
 menu = st.radio(
@@ -49,7 +62,8 @@ elif menu == "Novo Produto":
             if nome:
                 novo_item = pd.DataFrame([{'Descrição': nome, 'Quantidade': qtd, 'Preço Unit. (R$)': preco}])
                 st.session_state['estoque'] = pd.concat([st.session_state['estoque'], novo_item], ignore_index=True)
-                st.success(f"Produto '{nome}' cadastrado com sucesso!")
+                salvar_estoque(st.session_state['estoque'])
+                st.success(f"Produto '{nome}' cadastrado e salvo com sucesso!")
             else:
                 st.warning("Preencha o nome do produto.")
 
@@ -72,15 +86,12 @@ elif menu == "Importar PDF":
                                 linhas = texto.split('\n')
                                 for linha in linhas:
                                     partes = linha.split(':')
-                                    # Valida se a linha tem o formato de produto
                                     if len(partes) >= 6:
                                         try:
-                                            # Trata a descrição
                                             desc = partes[1].strip()
                                             if '-' in desc:
                                                 desc = desc.split('-', 1)[1].strip()
                                             
-                                            # Trata quantidade e valor unitário
                                             qtd = int(partes[3].strip())
                                             val_unit = float(partes[4].strip().replace(',', '.'))
                                             
@@ -93,8 +104,10 @@ elif menu == "Importar PDF":
                                             continue
                     
                     if lista_produtos:
-                        st.session_state['estoque'] = pd.DataFrame(lista_produtos)
-                        st.success(f"Sucesso! {len(lista_produtos)} produtos importados para o estoque.")
+                        novo_df = pd.DataFrame(lista_produtos)
+                        st.session_state['estoque'] = novo_df
+                        salvar_estoque(novo_df)
+                        st.success(f"Sucesso! {len(lista_produtos)} produtos importados e salvos permanentemente.")
                     else:
                         st.warning("Nenhum produto com o padrão do relatório foi encontrado.")
                         
@@ -108,4 +121,14 @@ elif menu == "Estoque & Preços":
         st.info("Nenhum produto cadastrado no momento.")
     else:
         st.write(f"Total de itens no estoque: **{len(st.session_state['estoque'])}**")
+        
+        # Botão para baixar backup da lista
+        csv_data = st.session_state['estoque'].to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="📥 Baixar Backup em Excel/CSV",
+            data=csv_data,
+            file_name="estoque_drogaria.csv",
+            mime="text/csv"
+        )
+        
         st.dataframe(st.session_state['estoque'], use_container_width=True)
