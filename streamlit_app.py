@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização CSS Nativa (Forçando Preto Puro e Alto Contraste)
+# Estilização CSS Nativa (Preto Puro e Alto Contraste)
 st.markdown("""
     <style>
     /* Fundo Claro e Texto Preto em Todo o App */
@@ -94,7 +94,7 @@ st.markdown("""
         margin-top: 5px;
     }
 
-    /* Caixa do Comprovante na Tela (Branco com Letras Pretas em Negrito) */
+    /* Caixa do Comprovante na Tela */
     .receipt-box {
         background-color: #ffffff !important;
         border: 2px solid #000000 !important;
@@ -270,7 +270,7 @@ with tab_venda:
         texto_nota += "-------------------------------------\n"
         
         for itm in ped['Itens']:
-            texto_nota += f"• {itm['Qtd']}x {itm['Produto']} - R$ {itm['Subtotal']:.2f}\n"
+            texto_nota += f"• {itm['Qtd']}x {itm['Produto']} (R$ {itm['Preço Final']:.2f} un) - Total: R$ {itm['Subtotal']:.2f}\n"
             
         texto_nota += "-------------------------------------\n"
         texto_nota += f"*TOTAL FINAL: R$ {ped['Total']:.2f}*\n\n"
@@ -350,3 +350,4 @@ with tab_historico:
         df_h = pd.DataFrame(st.session_state.pedidos)
         st.metric("Total Faturado", f"R$ {df_h['Total'].sum():.2f}")
         st.dataframe(df_h[["Pedido", "Data", "Cliente", "Pagamento", "Total"]], hide_index=True, use_container_width=True)
+        
