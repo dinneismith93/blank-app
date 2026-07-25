@@ -39,6 +39,7 @@ def salvar_vendas_disco(df_vendas):
     df_vendas.to_csv(ARQUIVO_VENDAS, index=False)
 
 def salvar_clientes_disco(df_clientes):
+    # Garante salvamento automático permanente dos contatos
     df_clientes.to_csv(ARQUIVO_CLIENTES, index=False)
 
 # --- CARREGAMENTO DE DADOS ---
@@ -71,7 +72,7 @@ def carregar_vendas_base():
 def carregar_clientes_base():
     if os.path.exists(ARQUIVO_CLIENTES):
         try:
-            df = pd.read_csv(ARQUIVO_CLIENTES)
+            df = pd.read_csv(ARQUIVO_CLIENTES, dtype={'WhatsApp': str})
             df['WhatsApp'] = df['WhatsApp'].astype(str)
             return df
         except Exception:
@@ -126,9 +127,9 @@ def extrair_clientes_de_arquivo(uploaded_file):
         
     elif filename.endswith('.xlsx') or filename.endswith('.xls') or filename.endswith('.csv'):
         if filename.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
+            df = pd.read_csv(uploaded_file, dtype=str)
         else:
-            df = pd.read_excel(uploaded_file)
+            df = pd.read_excel(uploaded_file, dtype=str)
             
         col_nome, col_whats, col_end = None, None, None
         
@@ -395,19 +396,19 @@ elif menu == "👥 Clientes & Alertas":
         st.subheader("📤 Importar Lista de Clientes")
         arquivo_cli = st.file_uploader("Selecione o arquivo Excel (Pasta2.xlsx), PDF ou CSV:", type=['xlsx', 'xls', 'pdf', 'csv'], key="upload_clientes")
         
-        if arquivo_cli:
-            if st.button("📥 Processar e Importar Clientes", type="primary", use_container_width=True):
-                try:
-                    novos_df = extrair_clientes_de_arquivo(arquivo_cli)
-                    if not novos_df.empty:
-                        st.session_state['clientes'] = pd.concat([st.session_state['clientes'], novos_df], ignore_index=True).drop_duplicates(subset=['WhatsApp'])
-                        salvar_clientes_disco(st.session_state['clientes'])
-                        st.success(f"✅ Sucesso! {len(novos_df)} clientes adicionados/atualizados.")
-                        st.rerun()
-                    else:
-                        st.error("Não foi possível extrair dados válidos deste arquivo.")
-                except Exception as e:
-                    st.error(f"Erro ao processar arquivo: {e}")
+        # IMPORTAÇÃO AUTOMÁTICA AO SELECIONAR O ARQUIVO
+        if arquivo_cli is not None:
+            try:
+                novos_df = extrair_clientes_de_arquivo(arquivo_cli)
+                if not novos_df.empty:
+                    st.session_state['clientes'] = pd.concat([st.session_state['clientes'], novos_df], ignore_index=True).drop_duplicates(subset=['WhatsApp'])
+                    salvar_clientes_disco(st.session_state['clientes'])
+                    st.success(f"✅ Importado com sucesso! {len(novos_df)} contato(s) salvo(s) permanentemente.")
+                    st.rerun()
+                else:
+                    st.error("Não foi possível ler dados válidos deste arquivo.")
+            except Exception as e:
+                st.error(f"Erro ao processar o arquivo: {e}")
 
         st.divider()
         st.subheader("📥 Exportar Contatos")
