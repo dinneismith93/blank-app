@@ -2,8 +2,9 @@ import streamlit as st
 import pandas as pd
 import os
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime
 from fpdf import FPDF
+import pdfplumber
 
 st.set_page_config(page_title="Farmácia Menor Preço - Gestão & Pedidos", layout="wide", page_icon="💊")
 
@@ -104,6 +105,32 @@ def gerar_pdf_clientes(df_clientes):
         
     return pdf.output(dest='S').encode('latin-1', errors='replace')
 
+# --- FUNÇÃO PARA EXTRAIR CLIENTES DE ARQUIVO IMPORTADO ---
+def extrair_clientes_de_arquivo(uploaded_file):
+    novos = []
+    filename = uploaded_file.name.lower()
+    
+    if filename.endswith('.pdf'):
+        with pdfplumber.open(uploaded_file) as pdf:
+            for page in pdf.pages:
+                tabelas = page.extract_tables()
+                for tabela in tabelas:
+                    for linha in tabela:
+                        if len(linha) >= 2 and linha[0] and "Nome" not in str(linha[0]):
+                            nome = str(linha[0]).strip()
+                            whats = str(linha[1]).strip()
+                            end = str(linha[2]).strip() if len(linha) > 2 and linha[2] else ""
+                            if nome:
+                                novos.append({'Nome': nome, 'WhatsApp': whats, 'Endereço': end})
+    elif filename.endswith('.csv'):
+        df = pd.read_csv(uploaded_file)
+        return df
+    elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+        df = pd.read_excel(uploaded_file)
+        return df
+        
+    return pd.DataFrame(novos)
+
 # --- ESTADOS DA SESSÃO ---
 if 'estoque' not in st.session_state:
     st.session_state['estoque'] = carregar_estoque_base()
@@ -119,7 +146,7 @@ if 'carrinho' not in st.session_state:
 
 st.markdown("<h1 class='main-header'>💊 FARMÁCIA MENOR PREÇO</h1>", unsafe_allow_html=True)
 
-# Navigation
+# Navegação
 menu = st.radio(
     "Navegação",
     ["🛒 Emitir Pedido", "👥 Clientes & Alertas", "📋 Estoque & Preços", "📈 Lucros & Metas", "➕ Novo Produto"],
@@ -133,7 +160,6 @@ st.divider()
 if menu == "🛒 Emitir Pedido":
     st.header("🛒 Emitir Pedido do Cliente")
     
-    # Preenchimento automático se veio da aba Clientes
     cli_sel = st.session_state.pop('cliente_para_pedido', None)
     
     if st.session_state['estoque'].empty:
@@ -221,7 +247,6 @@ if menu == "🛒 Emitir Pedido":
                     dt_atual = datetime.now()
                     data_hora_str = dt_atual.strftime("%d/%m/%Y %H:%M")
                     
-                    # 1. Abater Estoque e Registrar Venda
                     novas_vendas = []
                     for item in st.session_state['carrinho']:
                         desc = item['Descrição']
@@ -245,7 +270,6 @@ if menu == "🛒 Emitir Pedido":
                             'Lucro (R$)': round(venda_tot - custo_tot, 2)
                         })
                     
-                    # 2. Cadastrar Cliente Automático se não existir
                     if nome_cliente.strip() and whatsapp_cliente.strip():
                         df_cli = st.session_state['clientes']
                         exists = df_cli[df_cli['WhatsApp'].astype(str) == str(whatsapp_cliente)]
@@ -254,7 +278,6 @@ if menu == "🛒 Emitir Pedido":
                             st.session_state['clientes'] = pd.concat([df_cli, novo_c], ignore_index=True)
                             salvar_clientes_disco(st.session_state['clientes'])
 
-                    # Salvar Estoque e Vendas
                     salvar_estoque_disco(st.session_state['estoque'])
                     st.session_state['vendas_historico'] = pd.concat([st.session_state['vendas_historico'], pd.DataFrame(novas_vendas)], ignore_index=True)
                     salvar_vendas_disco(st.session_state['vendas_historico'])
@@ -263,7 +286,6 @@ if menu == "🛒 Emitir Pedido":
                     st.success("Venda gravada! Estoque atualizado e contato salvo com sucesso.")
                     st.rerun()
 
-                # Comprovante WhatsApp
                 texto_comprovante = f"========================================\n"
                 texto_comprovante += f"       FARMACIA MENOR PRECO - PEDIDO    \n"
                 texto_comprovante += f"========================================\n"
@@ -297,7 +319,6 @@ elif menu == "👥 Clientes & Alertas":
         hoje = datetime.now()
         df_vendas_validas = df_vendas.dropna(subset=['Data_Obj'])
         
-        # Agrupa por cliente e pega a última compra
         ultimas_compras = df_vendas_validas.groupby(['Cliente', 'WhatsApp', 'Produto'])['Data_Obj'].max().reset_index()
         
         alertas = []
@@ -314,7 +335,7 @@ elif menu == "👥 Clientes & Alertas":
         
         if alertas:
             df_alertas = pd.DataFrame(alertas)
-            st.warning(f"⚠️ **{len(df_alertas)} cliente(s)** compraram remédios há 28 dias ou mais e podem estar precisando renovar o estoque!")
+            st.warning(f"⚠️ **{len(df_alertas)} cliente(s)** compraram remédios há 28 dias ou mais e podem precisar renovar o estoque!")
             
             for _, alt in df_alertas.iterrows():
                 col_a1, col_a2, col_a3 = st.columns([2, 2, 1])
@@ -331,7 +352,6 @@ elif menu == "👥 Clientes & Alertas":
         else:
             st.success("✅ Nenhuma pendência de recompra registrada para os últimos 28 dias.")
     
-    # CADASTRO E EXPORTAÇÃO
     col_c1, col_c2 = st.columns([2, 1])
     
     with col_c1:
@@ -353,9 +373,26 @@ elif menu == "👥 Clientes & Alertas":
                             st.success(f"Cliente {row['Nome']} selecionado! Vá para a aba 'Emitir Pedido'.")
 
     with col_c2:
+        st.subheader("📤 Importar Lista de Clientes (PDF / Excel / CSV)")
+        arquivo_cli = st.file_uploader("Selecione o arquivo de clientes:", type=['pdf', 'csv', 'xlsx', 'xls'], key="upload_clientes")
+        
+        if arquivo_cli:
+            if st.button("📥 Processar e Importar Clientes", type="primary", use_container_width=True):
+                try:
+                    novos_df = extrair_clientes_de_arquivo(arquivo_cli)
+                    if not novos_df.empty:
+                        st.session_state['clientes'] = pd.concat([st.session_state['clientes'], novos_df], ignore_index=True).drop_duplicates(subset=['WhatsApp'])
+                        salvar_clientes_disco(st.session_state['clientes'])
+                        st.success(f"✅ Sucesso! {len(novos_df)} clientes adicionados/atualizados.")
+                        st.rerun()
+                    else:
+                        st.error("Não foi possível extrair dados válidos deste arquivo.")
+                except Exception as e:
+                    st.error(f"Erro ao processar arquivo: {e}")
+
+        st.divider()
         st.subheader("📥 Exportar Contatos")
         if not df_clientes.empty:
-            # Botão PDF
             pdf_bytes = gerar_pdf_clientes(df_clientes)
             st.download_button(
                 label="📄 Baixar Lista em PDF",
@@ -365,10 +402,9 @@ elif menu == "👥 Clientes & Alertas":
                 use_container_width=True
             )
             
-            # Botão Excel/CSV
             csv_data = df_clientes.to_csv(index=False).encode('utf-8')
             st.download_button(
-                label="📊 Baixar Lista em CSV/Excel",
+                label="📊 Baixar Lista de Clientes (CSV)",
                 data=csv_data,
                 file_name="clientes_drogaria.csv",
                 mime="text/csv",
