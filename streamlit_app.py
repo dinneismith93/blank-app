@@ -1,12 +1,24 @@
 import streamlit as st
 import pandas as pd
 import pdfplumber
+import os
 
 st.set_page_config(page_title="Gestão de Estoque", layout="wide")
 
-# Inicializa o estoque na sessão
+ARQUIVO_ESTOQUE = "estoque_drogaria.csv"
+
+# Função para carregar o estoque do arquivo no repositório
+def carregar_estoque():
+    if os.path.exists(ARQUIVO_ESTOQUE):
+        try:
+            return pd.read_csv(ARQUIVO_ESTOQUE)
+        except Exception:
+            return pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
+    return pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
+
+# Inicializa o estoque com o arquivo permanente
 if 'estoque' not in st.session_state:
-    st.session_state['estoque'] = pd.DataFrame(columns=['Descrição', 'Quantidade', 'Preço Unit. (R$)'])
+    st.session_state['estoque'] = carregar_estoque()
 
 st.title("📦 Sistema de Gestão de Estoque")
 
@@ -24,13 +36,13 @@ st.divider()
 if menu == "Emitir Pedido":
     st.header("🛒 Emitir Pedido")
     if st.session_state['estoque'].empty:
-        st.info("O estoque está vazio. Vá em 'Importar PDF' para carregar os produtos.")
+        st.info("O estoque está vazio. Certifique-se de que o arquivo 'estoque_drogaria.csv' está no GitHub.")
     else:
-        st.write("Pesquise e selecione os produtos para o pedido:")
+        st.write("Pesquise os produtos para montar seu pedido:")
         
         df_estoque = st.session_state['estoque'].copy()
         
-        busca = st.text_input("🔍 Buscar produto...", key="busca_pedido")
+        busca = st.text_input("🔍 Buscar produto pelo nome...", key="busca_pedido")
         if busca:
             df_estoque = df_estoque[df_estoque['Descrição'].str.contains(busca, case=False, na=False)]
         
@@ -50,20 +62,20 @@ elif menu == "Novo Produto":
             if nome:
                 novo_item = pd.DataFrame([{'Descrição': nome, 'Quantidade': qtd, 'Preço Unit. (R$)': preco}])
                 st.session_state['estoque'] = pd.concat([st.session_state['estoque'], novo_item], ignore_index=True)
-                st.success(f"Produto '{nome}' cadastrado com sucesso!")
+                st.success(f"Produto '{nome}' adicionado à sessão atual!")
             else:
                 st.warning("Preencha o nome do produto.")
 
 # --- ABA 3: IMPORTAR PDF ---
 elif menu == "Importar PDF":
     st.header("📄 Importar Estoque via PDF")
-    st.write("Upload do relatório do inventário para cadastrar os produtos automaticamente.")
+    st.write("Upload do relatório para atualizar temporariamente a lista.")
     
     uploaded_file = st.file_uploader("Selecione o arquivo PDF do inventário", type=["pdf"], key="pdf_uploader")
     
     if uploaded_file is not None:
-        if st.button("Processar PDF e Atualizar Estoque", key="btn_processar_pdf"):
-            with st.spinner("Lendo e extraindo produtos de todas as páginas..."):
+        if st.button("Processar PDF", key="btn_processar_pdf"):
+            with st.spinner("Lendo produtos do PDF..."):
                 lista_produtos = []
                 try:
                     with pdfplumber.open(uploaded_file) as pdf:
@@ -92,12 +104,12 @@ elif menu == "Importar PDF":
                     
                     if lista_produtos:
                         st.session_state['estoque'] = pd.DataFrame(lista_produtos)
-                        st.success(f"Sucesso! {len(lista_produtos)} produtos importados.")
+                        st.success(f"Sucesso! {len(lista_produtos)} produtos carregados.")
                     else:
-                        st.warning("Nenhum produto com o padrão do relatório foi encontrado.")
+                        st.warning("Nenhum produto encontrado.")
                         
                 except Exception as e:
-                    st.error(f"Erro ao processar o arquivo: {e}")
+                    st.error(f"Erro ao processar: {e}")
 
 # --- ABA 4: ESTOQUE & PREÇOS ---
 elif menu == "Estoque & Preços":
@@ -109,7 +121,7 @@ elif menu == "Estoque & Preços":
         
         csv_data = st.session_state['estoque'].to_csv(index=False).encode('utf-8')
         st.download_button(
-            label="📥 Baixar Backup em Excel/CSV",
+            label="📥 Baixar Backup em CSV",
             data=csv_data,
             file_name="estoque_drogaria.csv",
             mime="text/csv",
