@@ -47,6 +47,11 @@ elif menu == "Importar PDF":
                 
                 st.success("PDF processado com sucesso!")
                 st.write(f"Total de páginas lidas: {len(produtos_extraidos)}")
+                
+                if produtos_extraidos:
+                    st.subheader("Exemplo do conteúdo da Página 1:")
+                    st.text(produtos_extraidos[0][:1000])
+
             except Exception as e:
                 st.error(f"Erro ao ler o PDF: {e}")
 
