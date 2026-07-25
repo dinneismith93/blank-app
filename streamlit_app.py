@@ -5,89 +5,96 @@ import urllib.parse
 
 # Configuração da página para celular e layout moderno
 st.set_page_config(
-    page_title="Drogaria Max - Sistema de Vendas",
+    page_title="Drogarias Max - Sistema de Vendas",
     page_icon="💊",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# Estilização Customizada CSS (Design Moderno & Fontes Maior)
+# Estilização Customizada CSS (Temática Clara - Drogarias Max)
 st.markdown("""
     <style>
-    /* Estilo Global e Fundo */
+    /* Estilo Global e Fundo Claro */
     .stApp {
-        background-color: #0e1117;
+        background-color: #f8fafc;
+        color: #1e293b;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
     
-    /* Título e Header */
-    .app-title {
-        color: #00e676;
-        font-size: 28px;
-        font-weight: 800;
-        text-align: center;
-        margin-bottom: 2px;
+    /* Ajustes dos Textos e Rótulos dos Inputs para Fundo Claro */
+    label, p, span, div {
+        color: #1e293b !important;
     }
+
+    /* Subtítulo */
     .app-subtitle {
-        color: #a0aab8;
+        color: #64748b !important;
         font-size: 14px;
         text-align: center;
+        margin-top: 5px;
         margin-bottom: 20px;
+        font-weight: 500;
     }
     
-    /* Card de Produto Selecionado com Fonte Maior */
+    /* Card de Produto Selecionado (Azul Max & Branco) */
     .product-card {
-        background: linear-gradient(135deg, #1e2638 0%, #151b27 100%);
-        border: 1px solid #2e3a52;
+        background: #ffffff;
+        border: 2px solid #e2e8f0;
+        border-left: 6px solid #e53935;
         border-radius: 12px;
-        padding: 18px;
+        padding: 16px;
         margin-top: 10px;
         margin-bottom: 15px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
     }
     .product-title {
-        color: #ffffff;
+        color: #0d47a1 !important;
         font-size: 22px;
         font-weight: 700;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }
     .product-category {
         display: inline-block;
-        background-color: #0066cc;
-        color: white;
+        background-color: #0d47a1;
+        color: #ffffff !important;
         font-size: 12px;
-        padding: 3px 10px;
+        padding: 4px 10px;
         border-radius: 12px;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         font-weight: 600;
     }
     
-    /* Botões Modernos */
+    /* Botões Modernos com Vermelho Max */
     .stButton>button { 
         width: 100%; 
-        background: linear-gradient(90deg, #00c853 0%, #009624 100%);
-        color: white; 
+        background: linear-gradient(90deg, #e53935 0%, #c62828 100%);
+        color: #ffffff !important; 
         border-radius: 10px; 
         height: 50px; 
         font-weight: 700;
-        font-size: 17px;
+        font-size: 16px;
         border: none;
-        box-shadow: 0 4px 10px rgba(0, 200, 83, 0.3);
+        box-shadow: 0 4px 10px rgba(229, 57, 53, 0.25);
         transition: all 0.3s ease;
     }
     .stButton>button:hover {
         transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(0, 200, 83, 0.5);
+        box-shadow: 0 6px 15px rgba(229, 57, 53, 0.4);
     }
-    
-    /* Inputs Formatados */
-    div[data-baseweb="input"] {
+    .stButton>button p {
+        color: #ffffff !important;
+    }
+
+    /* Inputs e Caixas de Seleção Formatadas */
+    div[data-baseweb="input"], div[data-baseweb="select"] {
         border-radius: 8px;
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Lista padrão com os medicamentos e suporte a URL de imagens
+# Lista padrão com os medicamentos e fotos
 dados_iniciais = [
     {"ID": 1001, "Produto": "Atenol 50mg", "Categoria": "Medicamentos", "Laboratório": "Genérico", "Preço": 9.50, "Estoque": 99, "Imagem": "https://img.freepik.com/vetores-gratis/ilustracao-em-vetor-de-garrafa-de-pulas-de-medicina-isolada_1380-607.jpg"},
     {"ID": 1002, "Produto": "Azitromicina 40mg/mL - Pó p/ Suspensão", "Categoria": "Antibióticos", "Laboratório": "Genérico", "Preço": 18.90, "Estoque": 99, "Imagem": "https://img.freepik.com/vetores-gratis/garrafa-de-xarope-de-remedio-com-colher_1308-109012.jpg"},
@@ -144,11 +151,14 @@ if "pedidos" not in st.session_state:
 if "ultimo_pedido" not in st.session_state:
     st.session_state.ultimo_pedido = None
 
-# Cabeçalho Principal Customizado
-st.markdown("<h1 class='app-title'>🔴 Drogaria Max</h1>", unsafe_allow_html=True)
-st.markdown("<p class='app-subtitle'>Sistema Móvel de Emissão de Pedidos & Vendas</p>", unsafe_allow_html=True)
+# Logo das Drogarias Max Centralizado
+col_l1, col_l2, col_l3 = st.columns([1, 3, 1])
+with col_l2:
+    st.image("https://seeklogo.com/images/D/drogarias-max-logo-C727D370B4-seeklogo.com.png", use_column_width=True)
 
-tab_venda, tab_estoque, tab_historico = st.tabs(["🛍️ Emitir Pedido", "📦 Catálogo & Fotos", "📊 Vendas Realizadas"])
+st.markdown("<p class='app-subtitle'>Sempre ao seu lado • Sistema Móvel de Vendas</p>", unsafe_allow_html=True)
+
+tab_venda, tab_estoque, tab_historico = st.tabs(["🛍️ Emitir Pedido", "📦 Catálogo", "📊 Vendas Realizadas"])
 
 # --- ABA 1: EMITIR PEDIDO ---
 with tab_venda:
@@ -170,7 +180,7 @@ with tab_venda:
         prod_escolhido = st.selectbox("Selecione o Produto no Menu:", prod_lista)
         dados_p = st.session_state.produtos[st.session_state.produtos["Produto"] == prod_escolhido].iloc[0]
         
-        # CARD MODERNO DO PRODUTO (FONTE MAIOR + DETALHES + FOTO)
+        # CARD MODERNO DO PRODUTO (FUNDO CLARO COM DETALHES EM AZUL E VERMELHO MAX)
         col_img, col_info = st.columns([1, 2])
         
         with col_img:
@@ -182,8 +192,8 @@ with tab_venda:
                 <div class="product-card">
                     <span class="product-category">{dados_p['Categoria']}</span>
                     <div class="product-title">{dados_p['Produto']}</div>
-                    <div style="color: #a0aab8; font-size: 13px;">Laboratório: <b>{dados_p['Laboratório']}</b></div>
-                    <div style="color: #00e676; font-size: 26px; font-weight: 800; margin-top: 5px;">
+                    <div style="color: #64748b; font-size: 13px;">Laboratório: <b>{dados_p['Laboratório']}</b></div>
+                    <div style="color: #e53935; font-size: 26px; font-weight: 800; margin-top: 5px;">
                         R$ {float(dados_p['Preço']):.2f}
                     </div>
                 </div>
@@ -202,7 +212,7 @@ with tab_venda:
                 "Preço": float(dados_p['Preço']),
                 "Subtotal": subtot
             })
-            st.success(f"✅ {qtd_compra}x {prod_escolhido} adicionado com sucesso!")
+            st.success(f"✅ {qtd_compra}x {prod_escolhido} adicionado ao carrinho!")
 
     # Carrinho de Compras
     if st.session_state.carrinho:
@@ -212,9 +222,9 @@ with tab_venda:
         st.dataframe(df_cart[["Produto", "Qtd", "Subtotal"]], hide_index=True, use_container_width=True)
         
         val_total = df_cart["Subtotal"].sum()
-        st.markdown(f"<h2 style='color:#00e676; text-align:right;'>Total: R$ {val_total:.2f}</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h2 style='color:#0d47a1; text-align:right;'>Total: R$ {val_total:.2f}</h2>", unsafe_allow_html=True)
         
-        if st.button("🚀 FINALIZAR PEDIDO DROGARIA MAX"):
+        if st.button("🚀 FINALIZAR PEDIDO DROGARIAS MAX"):
             if not cliente_nome.strip():
                 st.error("⚠️ Preencha o nome do cliente para prosseguir.")
             else:
@@ -251,7 +261,7 @@ with tab_venda:
         st.markdown("---")
         st.subheader(f"🧾 Comprovante do Pedido {ped['Pedido']}")
         
-        texto_nota = f"*DROGARIA MAX - COMPROVANTE DE PEDIDO*\n"
+        texto_nota = f"*DROGARIAS MAX - COMPROVANTE DE PEDIDO*\n"
         texto_nota += f"Pedido: {ped['Pedido']} | Data: {ped['Data']}\n"
         texto_nota += f"Cliente: {ped['Cliente']}\n"
         texto_nota += f"Endereço: {ped['Endereço']}\n"
@@ -274,7 +284,7 @@ with tab_venda:
 
 # --- ABA 2: CATÁLOGO & ESTOQUE ---
 with tab_estoque:
-    st.subheader("📦 Catálogo Geral com Imagens")
+    st.subheader("📦 Catálogo Geral de Produtos")
     st.dataframe(
         st.session_state.produtos[["ID", "Produto", "Categoria", "Laboratório", "Preço", "Estoque"]], 
         hide_index=True, 
